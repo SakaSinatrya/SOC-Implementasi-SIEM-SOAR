@@ -1,6 +1,6 @@
 # Wazuh SIEM & SOAR — Deteksi DDoS dan Malware di Azure
 
-> Implementasi arsitektur SIEM terdistribusi berbasis Wazuh di Microsoft Azure dengan skenario Proof of Concept (PoC) serangan DDoS multi-vektor dan deteksi malware, dilengkapi **Wazuh Active Response** sebagai mekanisme SOAR untuk pemblokiran otomatis IP penyerang secara real-time.
+> Implementasi arsitektur SIEM terdistribusi berbasis Wazuh di Microsoft Azure dengan skenario Proof of Concept (PoC) serangan DDoS multi-vektor dan unggahan Web Shell (Malware), dilengkapi **Wazuh Active Response** sebagai mekanisme SOAR untuk pemblokiran IP otomatis dan karantina file berbahaya secara real-time.
 
 ---
 
@@ -18,7 +18,13 @@
 
 ## Deskripsi Proyek
 
-Proyek ini mengimplementasikan sistem keamanan berlapis (*Defense in Depth*) melalui deployment **Wazuh SIEM** (Security Information and Event Management) pada infrastruktur cloud **Microsoft Azure for Students**. Sistem diuji ketahanannya menggunakan simulasi serangan **Distributed Denial of Service (DDoS)** multi-vektor — TCP SYN Flood (Layer 4) dan HTTP Flood (Layer 7). Selain deteksi, sistem juga dilengkapi **Wazuh Active Response** sebagai komponen SOAR yang secara otomatis memblokir IP penyerang melalui `iptables` di agent target begitu anomali terdeteksi secara *real-time*.
+Proyek ini mengimplementasikan sistem keamanan berlapis (*Defense in Depth*) melalui deployment **Wazuh SIEM** (Security Information and Event Management) pada infrastruktur cloud **Microsoft Azure for Students**. Sistem diuji ketahanannya menggunakan simulasi dua vektor serangan utama:
+1. **Distributed Denial of Service (DDoS)** multi-vektor (TCP SYN Flood & HTTP Flood).
+2. **Malware Injection** (Unggahan Web Shell).
+
+Selain deteksi, sistem juga dilengkapi **Wazuh Active Response** sebagai komponen SOAR yang bekerja secara proporsional: 
+* Secara otomatis memblokir IP penyerang melalui `iptables` di agen target ketika terjadi anomali jaringan.
+* Mengeksekusi skrip kustom untuk menghapus file berbahaya berdasarkan intelijen ancaman (*Threat Intelligence*) dari **VirusTotal API** tanpa memblokir IP pengguna sah demi menghindari *False Positive*.
 
 ---
 
@@ -26,7 +32,7 @@ Proyek ini mengimplementasikan sistem keamanan berlapis (*Defense in Depth*) mel
 
 ### Topologi
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                          Azure Cloud (rg-wazuh-lab)                      │
 │                                                                          │
@@ -34,20 +40,20 @@ Proyek ini mengimplementasikan sistem keamanan berlapis (*Defense in Depth*) mel
 │  │    wazuh-agent2     │◄──────────────►│     wazuh-manager-vnet     │   │
 │  │    East Asia        │                │     Indonesia Central      │   │
 │  │    104.214.184.244  │                │                            │   │
-│  │                     │                │  ┌──────────────────────┐  │   │
-│  │  [Attacker]         │  DDoS Attack   │  │   wazuh-manager      │  │   │
-│  │  hping3 · ab        ├──────────────────►│   70.153.136.38      │  │   │
-│  │  ddos_poc.py        │                │  │   SIEM · Dashboard   │  │   │
-│  │                     |                │  │   Indexer            │  │   │
-│  │   IP Blocked        │                |  └──────────┬───────────┘  |   | 
-│  │  (iptables DROP)    │◄ ─ ─ ─ ─ ─ ─ ─ | ─ ─ ─ ─ ─ ─ │ Active Resp  │   │   
-│  └─────────────────────┘  firewall-drop │             │ logs         │   │
-│                                         │  ┌──────────▼───────────┐  │   │
-│                                         │  │   wazuh-agent1       │  │   │
-│                                         │  │   70.153.137.47      │  │   │
-│                                         │  │   Apache2 · Target   │  │   │
-│                                         │  │   iptables DROP      │  │   │
-│                                         │  └──────────────────────┘  │   │
+│  │                     │  1. DDoS       │  ┌──────────────────────┐  │   │
+│  │  [Attacker]         ├──────────────────►│    wazuh-manager     │  │   │
+│  │  hping3 · ab        │  2. Web Shell  │  │    70.153.136.38     │──┼──┐(API)
+│  │  malware_poc.py     │                │  │    SIEM · Indexer    │  │  ▼
+│  │                     |                │  └──────────┬───────────┘  | Virus
+│  │    IP Blocked       │                |             │ Active Resp  │ Total
+│  │  (iptables DROP)    │◄ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │ (firewall /  │  ▲
+│  └─────────────────────┘                │             │  rm-threat)  │  │
+│                                         │  ┌──────────▼───────────┐  │  │
+│                                         │  │    wazuh-agent1      │  │  │
+│                                         │  │    70.153.137.47     │──┼──┘(FIM)
+│                                         │  │    Apache2 · Target  │  │   
+│                                         │  │    iptables DROP     │  │   
+│                                         │  └──────────────────────┘  │   
 │                                         └────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
