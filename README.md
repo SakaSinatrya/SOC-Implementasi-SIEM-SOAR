@@ -205,7 +205,7 @@ sudo hping3 -S --flood -V -p 80 70.153.137.47
 |---------|-------|-------|---------|
 | 202 | 7 | Agent event queue is 90% full | Traffic mulai membebani agen |
 | 203 | 9 | Agent event queue is full. Events may be lost | Buffer agen mencapai batas |
-| **204** | **12** | **Agent event queue is flooded** | **⚠️ DDoS terdeteksi — Critical** |
+| **204** | **12** | **Agent event queue is flooded** | **DDoS terdeteksi — Critical** |
 | 205 | 3 | Agent event queue is back to normal load | Sistem pulih pasca serangan |
 
 ---
