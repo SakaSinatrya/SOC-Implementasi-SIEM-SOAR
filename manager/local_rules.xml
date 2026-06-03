@@ -1,0 +1,33 @@
+<group name="ddos,attack,">
+  <rule id="100200" level="12">
+    <if_matched_sid>4151</if_matched_sid>
+    <same_source_ip/>
+    <description>Possible SYN Flood attack detected from $(srcip)</description>
+  </rule>
+
+  <rule id="100201" level="13">
+    <if_matched_sid>100200</if_matched_sid>
+    <same_source_ip/>
+    <description>DDoS: Sustained high connection rate from $(srcip)</description>
+  </rule>
+
+  <rule id="100202" level="11">
+    <if_matched_sid>4151</if_matched_sid>
+    <match>PING</match>
+    <same_source_ip/>
+    <description>Possible ICMP Flood detected from $(srcip)</description>
+  </rule>
+
+  <rule id="100203" level="11">
+    <if_matched_sid>4151</if_matched_sid>
+    <match>UDP</match>
+    <same_source_ip/>
+    <description>Possible UDP Flood detected from $(srcip)</description>
+  </rule>
+
+  <rule id="100204" level="10">
+    <if_matched_sid>31151</if_matched_sid>
+    <same_source_ip/>
+    <description>Possible HTTP Flood detected from $(srcip)</description>
+  </rule>
+</group>
