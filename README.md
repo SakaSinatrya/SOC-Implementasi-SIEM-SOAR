@@ -187,9 +187,10 @@ sudo systemctl enable --now apache2
 sudo apt-get install -y hping3 apache2-utils
 ```
 
-> Pembuatan Custom Script DDoS PoC (ddos_poc.py) di agent2: Skrip berbasis Python ini digunakan untuk mensimulasikan gempuran HTTP Flood dan UDP Flood secara multithreading ke arah server target.
+### Pembuatan Custom Script DDoS PoC (ddos_poc.py) di agent2 
+Skrip berbasis Python ini digunakan untuk mensimulasikan gempuran HTTP Flood dan UDP Flood secara multithreading ke arah server target.
 
-```xml
+```py
 #!/usr/bin/env python3
 import socket, threading, time, random, argparse, sys
 from datetime import datetime
@@ -397,12 +398,12 @@ Konfigurasi ini ditambahkan pada file `/var/ossec/etc/ossec.conf` di wazuh-agent
     <directories realtime="yes" check_all="yes">/var/www/html</directories>
   </syscheck>
 ```
-> Inilah yang membuat Agent 1 bisa langsung sadar dan melapor ke Manager saat Agent 2 melempar file shell.php ke dalam server
+> Kode ini yang membuat Agent 1 bisa langsung sadar dan melapor ke Manager saat Agent 2 melempar file shell.php ke dalam server
 
 ### Konfigurasi Skrip Custom remove-threat.sh Agent1
 Skrip ini diletakkan di dalam direktori eksekusi Wazuh Agent1, yaitu di: `/var/ossec/active-response/bin/remove-threat.sh`
 
-```xml
+```sh
 #!/bin/bash
 # Membaca data alert berformat JSON dari Wazuh Manager
 read INPUT_JSON
@@ -419,14 +420,14 @@ else
     echo "$(date) - [SOAR] GAGAL. File tidak ditemukan. JSON: $INPUT_JSON" >> /var/ossec/logs/active-responses.log
 fi
 ```
-> Skrip ini juga harus diberikan hak akses eksekusi melalui perintah sudo chmod 750 /var/ossec/active-response/bin/remove-threat.sh dan chown root:wazuh agar bisa dijalankan oleh sistem
+> Skrip ini harus diberikan hak akses eksekusi melalui perintah `sudo chmod 750 /var/ossec/active-response/bin/remove-threat.sh` dan `chown root:wazuh` agar bisa dijalankan oleh sistem
 
 ## Simulasi Serangan Malware
 
 ### Buat Script Custom
 Kita buat script custom bernama `malware_poc.py`
 
-```xml
+```py
 mport requests
 
 TARGET_URL = "http://70.153.137.47/upload.php"
@@ -447,7 +448,7 @@ print(f"[+] Status: {response.text}")
 python3 malware_poc.py
 ```
 
-### Verifikasi di agent1
+### Verifikasi di agent1 untuk Serangan DDOS dan Malware
 
 ```bash
 # Cek rule iptables yang ditambahkan Wazuh
