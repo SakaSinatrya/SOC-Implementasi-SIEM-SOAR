@@ -542,21 +542,21 @@ azureuser@wazuh-agent1:~$ sudo iptables -L INPUT -n --line-numbers | grep DROP
 ```
 ### Cara Unblock Manual
 
-# Lihat semua IP yang diblock
+1. Lihat semua IP yang diblock
 ```sudo iptables -L INPUT -n --line-numbers | grep DROP```
 
-# Hapus block IP tertentu (gunakan nomor baris)
+2. Hapus block IP tertentu (gunakan nomor baris)
 ```sudo iptables -D INPUT -s 104.214.184.244 -j DROP```
 
-# Hapus semua rule DROP sekaligus
+3. Hapus semua rule DROP sekaligus
 ```sudo iptables -F INPUT```
 
-### Bukti Validasi Empiris Sistem
+4. Bukti Validasi Empiris Sistem
 Berikut adalah bukti konkret dan rekaman log digital yang diambil langsung dari infrastruktur server ketika simulasi serangan diluncurkan, membuktikan sistem SOAR bekerja otomatis.
 (foto)
 ---
 
-## Kesimpulan
+### Kesimpulan
 
 Sistem berhasil membuktikan bahwa Wazuh dapat berfungsi sebagai 
 platform SIEM + SOAR terintegrasi tanpa tools tambahan:
