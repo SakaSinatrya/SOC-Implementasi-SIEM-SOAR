@@ -548,3 +548,17 @@ azureuser@wazuh-agent1:~$ sudo iptables -L INPUT -n --line-numbers | grep DROP
 
 ---
 
+## Kesimpulan
+
+Sistem berhasil membuktikan bahwa Wazuh dapat berfungsi sebagai 
+platform SIEM + SOAR terintegrasi tanpa tools tambahan:
+
+- **Deteksi DDoS:** Rule 31151 berhasil mendeteksi HTTP Flood 
+  dalam hitungan detik setelah serangan dimulai
+- **Mitigasi Otomatis:** firewall-drop berhasil memblokir IP attacker 
+  (104.214.184.244) secara otomatis di level iptables
+- **Deteksi Malware:** FIM + VirusTotal API berhasil mengidentifikasi 
+  dan menghapus shell.php secara real-time
+- **Zero False Positive:** remove-threat.sh hanya menghapus file, 
+  tidak memblokir IP pengguna sah
+
