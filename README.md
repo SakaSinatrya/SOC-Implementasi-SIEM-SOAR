@@ -64,7 +64,7 @@ Selain deteksi, sistem juga dilengkapi **Wazuh Active Response** sebagai kompone
 |----------|--------|---------|------------|-----------|-------|
 | `wazuh-manager` | Indonesia Central | Standard_B2as_v2 | 2 vCPU, 8 GB | 70.153.136.38 | SIEM Manager · Dashboard · Indexer |
 | `wazuh-agent1` | Indonesia Central | Standard_B2als_v2 | 2 vCPU, 4 GB | 70.153.137.47 | **Target** — Apache2 web server |
-| `wazuh-agent2` | East Asia | Standard_B2als_v2 | 2 vCPU, 4 GB | 104.214.184.244 | **Attacker** — hping3, ab, ddos_poc.py |
+| `wazuh-agent2` | East Asia | Standard_B2als_v2 | 2 vCPU, 4 GB | 104.214.184.244 | **Attacker** — hping3, ab, ddos_poc.py, malware_poc.py|
 
 > **Catatan:** Ketiga VM memiliki IP privat `10.0.0.4` karena masing-masing berada dalam VNet yang terpisah dengan subnet `10.0.0.0/24` yang identik. Komunikasi antar-VNet menggunakan **VNet Peering**.
 
@@ -345,10 +345,10 @@ Wazuh Manager deteksi Rule ID 31151
 "Multiple web server 400 error codes from same source ip"
         │
         ▼
-Manager kirim perintah firewall-drop ke agent1 (via port 1514)
+Manager kirim sinyal Active Response → agent1 (location: local)
         │
         ▼
-wazuh-execd di agent1 jalankan firewall-drop
+wazuh-execd di agent1 sendiri menjalankan firewall-drop
         │
         ▼
 iptables DROP untuk IP penyerang (104.214.184.244)
