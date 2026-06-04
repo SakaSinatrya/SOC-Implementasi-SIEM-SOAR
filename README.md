@@ -482,11 +482,6 @@ ls -l /var/www/html/shell.php
 # Cek log active response
 sudo tail -f /var/ossec/logs/active-responses.log
 ```
-
-### Bukti Validasi Empiris Sistem
-
-Berikut adalah bukti konkret dan rekaman log digital yang diambil langsung dari infrastruktur server ketika simulasi serangan diluncurkan, membuktikan sistem SOAR bekerja otomatis.
-
 1. Log Analisis Intelijen Ancaman VirusTotal (Manager)
 
 Sebelum tindakan mitigasi diambil, Wazuh Manager menerima feedback dari VirusTotal API melalui Rule ID 87105 yang mengonfirmasi bahwa berkas shell.php positif merupakan malware berbahaya (berbasis signature berkas uji EICAR).
@@ -545,7 +540,20 @@ azureuser@wazuh-agent1:~$ sudo iptables -L INPUT -n --line-numbers | grep DROP
 4    DROP       all  --  43.136.110.113       0.0.0.0/0           
 ... [Sistem secara adaptif sukses melakukan DROP hingga total 31 IP]
 ```
+### Cara Unblock Manual
 
+# Lihat semua IP yang diblock
+```sudo iptables -L INPUT -n --line-numbers | grep DROP```
+
+# Hapus block IP tertentu (gunakan nomor baris)
+```sudo iptables -D INPUT -s 104.214.184.244 -j DROP```
+
+# Hapus semua rule DROP sekaligus
+```sudo iptables -F INPUT```
+
+### Bukti Validasi Empiris Sistem
+Berikut adalah bukti konkret dan rekaman log digital yang diambil langsung dari infrastruktur server ketika simulasi serangan diluncurkan, membuktikan sistem SOAR bekerja otomatis.
+(foto)
 ---
 
 ## Kesimpulan
